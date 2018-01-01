@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=YouTube Converter
+Name[pt]=Conversor YouTube
+Comment=Convert YouTube videos to MP3
+Comment[pt]=Converte videos YouTube para MP3
+Exec=youtube-converter
+Icon=applications-utilities
+Type=Application
+Terminal=false
+Categories=Audio;Network;Utility

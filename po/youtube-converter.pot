@@ -1,0 +1,68 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2018-01-01 20:14+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: youtube-converter:105
+#, python-format
+msgid "%s was sucessfully converted!"
+msgstr ""
+
+#: youtube-converter.glade:188
+msgid "Converted Successfully!"
+msgstr ""
+
+#: youtube-converter:134
+#, python-format
+msgid "Converting %s to MP3..."
+msgstr ""
+
+#: youtube-converter.glade:164
+msgid "Converting to MP3..."
+msgstr ""
+
+#: youtube-converter.glade:94
+msgid "Downloading metadata..."
+msgstr ""
+
+#: youtube-converter.glade:118
+msgid "Downloading..."
+msgstr ""
+
+#: youtube-converter.glade:221
+msgid "Failed to convert"
+msgstr ""
+
+#: youtube-converter.glade:28
+msgid "Type an YouTube URL"
+msgstr ""
+
+#: youtube-converter.glade:67
+msgid "Type or Drop an YouTube URL"
+msgstr ""
+
+#: youtube-converter.glade:8
+msgid "YouTube Converter"
+msgstr ""
+
+#: youtube-converter.glade:39
+msgid "_Convert"
+msgstr ""
+
+#: youtube-converter.glade:198
+msgid "_Show File"
+msgstr ""

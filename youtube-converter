@@ -1,0 +1,198 @@
+#!/usr/bin/python3
+
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+
+import gettext
+import locale
+import os
+
+locale_domain = "youtube-converter"
+locale_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), "youtube-converter-locale")
+locale.bindtextdomain(locale_domain, locale_path)
+locale.textdomain(locale_domain)
+locale.setlocale(locale.LC_ALL, "")
+_ = locale.gettext
+
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+from gi.repository import Gdk
+from gi.repository import GLib
+from gi.repository import Gio
+import json
+import re
+import signal
+import subprocess
+import time
+
+class YouTubeConverterApplication:
+    def __init__(self):
+        self._builder = Gtk.Builder()
+        self._builder.add_from_file(os.path.join(os.path.abspath(os.path.dirname(__file__)), "youtube-converter.glade"))
+        self._builder.connect_signals(self)
+        self._main_window = self._builder.get_object("main_window")
+        self._form = self._builder.get_object("form")
+        self._url = self._builder.get_object("url")
+        self._status_stack = self._builder.get_object("status_stack")
+        self._download_progress = self._builder.get_object("download_progress")
+        self._converting_label = self._builder.get_object("converting_label")
+        self._converted_label = self._builder.get_object("converted_label")
+        self._converted_path = None
+        self._video_title = None
+        self._main_window.drag_dest_set(Gtk.DestDefaults.ALL, None, Gdk.DragAction.COPY)
+        self._main_window.drag_dest_add_text_targets()
+        self._main_window.connect("drag-data-received", self._on_main_window_drag_data_received)
+        self._main_window.set_keep_above(True)
+
+    def run(self):
+        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, lambda *args: Gtk.main_quit(), None)
+        self._main_window.show()
+        Gtk.main()
+
+    def on_main_window_delete_event(self, *args):
+        Gtk.main_quit(*args)
+
+    def _on_main_window_drag_data_received(self, _widget, _drag_context, _x, _y, data, _info, _time):
+        urls = list(l for l in data.get_text().splitlines() if l.startswith("http://") or l.startswith("https://"))
+        if len(urls) > 0:
+            self._url.set_text(urls[0])
+            self.on_convert_button_clicked(None)
+
+    def on_convert_button_clicked(self, _widget):
+        url = self._url.get_text()
+        ProcessExecutor(
+            [
+                "youtube-dl",
+                "--no-call-home",
+                #"--print-traffic",
+                "--verbose",
+                "--no-playlist",
+                "--newline",
+                "--write-info-json",
+                "--format=bestaudio",
+                "--extract-audio",
+                "--audio-format=mp3",
+                "--audio-quality=0",
+                "--output=%s/%%(title)s.%%(ext)s" % GLib.get_user_special_dir(GLib.USER_DIRECTORY_DOWNLOAD),
+                url
+            ],
+            self.on_youtube_dl_line)
+        self._form.set_sensitive(False)
+        self._converted_path = None
+        self._video_title = None
+        self._status_stack.set_visible_child_name("metadata_status")
+
+    def on_youtube_dl_line(self, line):
+        if line != None:
+            line = line.rstrip().decode("utf-8")
+            logging.debug("processing line %s", line)
+
+            # look for metatada downloaded.
+            # e.g. [info] Writing video description metadata as JSON to: xBfBYfPNXqE.info.json
+            m = re.match(r"\[info\] Writing video description metadata as JSON to: (?P<path>.+)", line)
+            if m:
+                path = m.group("path")
+                logging.debug("Reading metadata from %s...", path)
+                time.sleep(0.3) # let youtube-dl finish writting the file.
+                with open(path) as f:
+                    metadata = json.load(f)
+                os.remove(path)
+                title = metadata['title']
+                logging.debug("Downloading %s...", title)
+                self._video_title = title
+                self._converted_label.set_text(_("%s was sucessfully converted!") % title)
+                return
+
+            # look for download progress.
+            # e.g. [download]  21.6% of 2.31MiB at  2.78MiB/s ETA 00:00
+            m = re.match(r"\[download\]\s+(?P<progress>\d+\.\d)+% of .+ at .+ ETA (?P<eta>.+)", line)
+            if m:
+                progress = float(m.group("progress"))
+                eta = m.group("eta")
+                logging.debug("Download progress %s ETA %s", progress, eta)
+                self._download_progress.set_fraction(progress/100.0)
+                self._status_stack.set_visible_child_name("download_status")
+                return
+
+            # look for download finished.
+            # e.g. [download] 100% of 2.31MiB in 00:00
+            m = re.match(r"\[download\] 100% of .+ in (?P<duration>.+)", line)
+            if m:
+                duration = m.group("duration")
+                logging.debug("Download completed in %s", duration)
+                return
+
+            # look for conversion started.
+            # e.g. [ffmpeg] Destination: xBfBYfPNXqE.mp3
+            m = re.match(r"\[ffmpeg\] Destination: (?P<path>.+)", line)
+            if m:
+                path = m.group("path")
+                logging.debug("Converting to %s", path)
+                self._converted_path = path
+                self._converting_label.set_text(_("Converting %s to MP3...") % self._video_title)
+                self._status_stack.set_visible_child_name("converting_status")
+                return
+        else:
+            self._form.set_sensitive(True)
+            if self._converted_path:
+                self._status_stack.set_visible_child_name("converted_status")
+            else:
+                self._status_stack.set_visible_child_name("failed_status")
+
+    def on_show_converted_file_button_clicked(self, _widget):
+        for name in ("nautilus", "thunar"):
+            path = find_executable(name)
+            if not path:
+                continue
+            if name == "nautilus":
+                args = [path, "--select", self._converted_path]
+                os.spawnv(os.P_NOWAIT, args[0], args)
+            elif name == "thunar":
+                directory_name = os.path.dirname(self._converted_path)
+                file_name = os.path.basename(self._converted_path)
+                # see https://git.gnome.org/browse/pygobject/tree/tests/test_gdbus.py
+                # see https://github.com/xfce-mirror/thunar/blob/master/examples/xfce-file-manager.py
+                dbus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+                file_manager = Gio.DBusProxy.new_sync(
+                    dbus,
+                    Gio.DBusProxyFlags.NONE,
+                    None,
+                    "org.xfce.Thunar",
+                    "/org/xfce/FileManager",
+                    "org.xfce.FileManager",
+                    None)
+                file_manager.call_sync(
+                    "DisplayFolderAndSelect",
+                    GLib.Variant(
+                        "(ssss)",
+                        (directory_name, file_name, "", "")),
+                    Gio.DBusCallFlags.NO_AUTO_START,
+                    500,
+                    None)
+            return
+
+def find_executable(name):
+    for search_path in os.environ["PATH"].split(os.pathsep):
+        path = os.path.join(search_path, name)
+        if os.access(path, os.X_OK):
+            return path
+    return None
+
+class ProcessExecutor:
+    def __init__(self, args, on_stdout_line):
+        self._on_stdout_line = on_stdout_line
+        self._process = subprocess.Popen(args, stdout=subprocess.PIPE)
+        GLib.io_add_watch(self._process.stdout, GLib.IO_IN | GLib.IO_HUP, self._on_stdout)
+
+    def _on_stdout(self, f, condition):
+        line = f.readline()
+        if condition == GLib.IO_IN:
+            self._on_stdout_line(line)
+            GLib.io_add_watch(f, GLib.IO_IN | GLib.IO_HUP, self._on_stdout)
+        else:
+            self._on_stdout_line(None)
+
+app = YouTubeConverterApplication()
+app.run()
