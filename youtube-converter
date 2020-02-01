@@ -4,16 +4,18 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG)
 
-import gettext
+# import gettext
 import locale
 import os
 
 locale_domain = "youtube-converter"
 locale_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), "youtube-converter-locale")
-locale.bindtextdomain(locale_domain, locale_path)
-locale.textdomain(locale_domain)
-locale.setlocale(locale.LC_ALL, "")
-_ = locale.gettext
+# TODO locale.bindtextdomain does not work on windows.
+# locale.bindtextdomain(locale_domain, locale_path)
+# locale.textdomain(locale_domain)
+# locale.setlocale(locale.LC_ALL, "")
+# _ = locale.gettext
+_ = lambda t: t
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -47,7 +49,8 @@ class YouTubeConverterApplication:
         self._main_window.set_keep_above(True)
 
     def run(self):
-        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, lambda *args: Gtk.main_quit(), None)
+        # TODO GLib.unix_signal_add does not work on windows.
+        # GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, lambda *args: Gtk.main_quit(), None)
         self._main_window.show()
         Gtk.main()
 
