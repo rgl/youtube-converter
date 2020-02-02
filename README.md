@@ -5,7 +5,7 @@ This converts YouTube videos to MP3.
 Download and install the `youtube-dl` binary:
 
 ```bash
-sudo wget -qO /usr/local/bin/youtube-dl https://github.com/rg3/youtube-dl/releases/download/2019.03.01/youtube-dl
+sudo wget -qO /usr/local/bin/youtube-dl https://github.com/ytdl-org/youtube-dl/releases/download/2020.01.24/youtube-dl
 sudo chmod +x /usr/local/bin/youtube-dl
 youtube-dl --version
 ```
